@@ -1,0 +1,19 @@
+HeatTemplateFormatVersion: '2012-12-12'
+Parameters:
+  ParaOne:
+    Description: Sample parameter
+    Type: String
+  ParaTwo:
+    Description: Sample parameter
+    Type: String
+    Default: 'bar'
+Outputs:
+  OutputOne:
+    Value:
+      {Ref: ParaOne}
+    Description: Output of sample parameter.
+  OutputTwo:
+    Value:
+      - {Ref: ParaOne}
+      - {Ref: ParaTwo}
+    Description: Output of sample parameter.

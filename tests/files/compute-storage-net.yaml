@@ -1,0 +1,135 @@
+heat_template_version: 2013-05-23
+
+description: >
+  This template creates 2 servers, each with 1 attached volume.
+  These servers are then connected to a private network. No 
+  public network access is given. The servers use cirros by default
+  for testing. For testing locally you should allocate a flavor with
+  minimal resources (e.g. 256MB RAM). All resources used are created
+  from new.
+
+parameters:
+  image:
+    type: string
+    description: Name of image to use for servers
+    default: cirros-0.3.2-x86_64-disk
+  flavor:
+    type: string
+    description: Flavor to use for servers
+    default: m1.nano
+  private_net_name:
+    type: string
+    description: Name of private network to be created
+    default: net
+  private_net_cidr:
+    type: string
+    description: Private network address (CIDR notation)
+    default: 12.12.12.0/24
+  private_net_gateway:
+    type: string
+    description: Private network gateway address
+    default: 12.12.12.1
+  private_net_pool_start:
+    type: string
+    description: Start of private network IP address allocation pool
+    default: 12.12.12.2
+  private_net_pool_end:
+    type: string
+    description: End of private network IP address allocation pool
+    default: 12.12.12.254
+  volume_size:
+    type: Number
+    description: Size of the volume to be created for each instance.
+    default: 1
+    constraints:
+      - range: { min: 1, max: 2 }
+    description: must be between 1 and 2 Gb.
+
+resources:
+  private_net:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: private_net_name }
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: private_net }
+      cidr: { get_param: private_net_cidr }
+      gateway_ip: { get_param: private_net_gateway }
+      allocation_pools:
+        - start: { get_param: private_net_pool_start }
+          end: { get_param: private_net_pool_end }
+
+  router:
+    type: OS::Neutron::Router
+
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: private_subnet }
+
+  volume1:
+    type: OS::Cinder::Volume
+    properties:
+      size: { get_param: volume_size }
+
+  volume1_attach:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: volume1 }
+      instance_uuid: { get_resource: server1 }
+      mountpoint: /dev/vdc
+
+  server1:
+    type: OS::Nova::Server
+    properties:
+      name: Server1
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      networks:
+        - port: { get_resource: server1_port }
+
+  server1_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: private_net }
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet }
+
+  volume2:
+    type: OS::Cinder::Volume
+    properties:
+      size: { get_param: volume_size }
+
+  volume2_attach:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: volume2 }
+      instance_uuid: { get_resource: server2 }
+      mountpoint: /dev/vdc
+
+  server2:
+    type: OS::Nova::Server
+    properties:
+      name: Server2
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      networks:
+        - port: { get_resource: server2_port }
+
+  server2_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: private_net }
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet }
+
+outputs:
+  server1_private_ip:
+    description: IP address of server1 in private network
+    value: { get_attr: [ server1, first_address ] }
+  server2_private_ip:
+    description: IP address of server2 in private network
+    value: { get_attr: [ server2, first_address ] }
