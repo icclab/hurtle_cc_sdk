@@ -29,8 +29,8 @@ setup(
     packages=['sdk', 'sdk.mcn'],
     install_requires=['paramiko',
                       'pyssf',
-                      'python-heatclient==0.2.9',
+                      'python-heatclient',
                       'python-keystoneclient',
                       'zabbix-api>=0.4',
-                      'requests>=2.6.0']
+                      'requests']
 )

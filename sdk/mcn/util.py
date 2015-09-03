@@ -17,12 +17,22 @@ Utility functions for easier access to services.
 """
 
 import requests
-
 from sdk import services
 from sdk.mcn import deployment
 from sdk.mcn import provisioning
 from sdk.mcn import security
 from sdk.mcn import monitoring
+
+
+from sdk.mcn.dnsaasclient import DNSaaSClientCore
+
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
+
+from sdk.mcn import monitoring
+from sdk.mcn import dnsaasclient 
 
 
 def get_deployer(token, dtype='orchestration', **kwargs):
@@ -117,3 +127,49 @@ def dispose_maas(token, maas_instance):
                   'x-auth-token': token}
         requests.delete(maas_instance.get_location(), headers=header)
         maas_instance.set_location(None)
+
+
+def get_dnsaas(token, **kwargs):
+    """
+    Return a instance of the DNSaaS.
+    A new instance is deployed if don't exist one
+    :param token: The token
+    """
+    if kwargs['tenant_name'] is not None:
+        tenant = kwargs['tenant_name']
+    else:
+        tenant = 'demo'
+
+    endpoint = services.get_service_endpoint('http://schemas.mobile-cloud-networking.eu/occi/sm#dnsaas', token,
+                                             **kwargs)
+    if endpoint is None:
+        print ("Error: Initiate the SM")
+        return None
+    else:
+        maas_address=None
+        maas_endpoint=None 
+        dispose_maas=False
+        dns_action = dnsaasclient.DNSaaSClientAction(endpoint, tenant, token, maas_address, maas_endpoint, dispose_maas)
+        if dns_action.init_dns():
+            return dns_action
+        else:
+            return None
+   
+
+
+def dispose_dnsaas(token, dnsaas_instance):
+    """
+    Disposes monitoring helper and deployed monitoring-stack of DNSaaS
+
+    :param token: a security token
+    :param dnsaas_instance: an instance of DNSaaSClientAction
+    """
+    if dnsaas_instance.get_location() is not None:
+
+        # Check if maas was instantiate this instance of DNSaas
+        if dnsaas_instance.get_dispose_maas():
+            dispose_maas(token, dnsaas_instance.get_maas_endpoint())
+
+        header = {'x-tenant-name': dnsaas_instance.get_tenant(), 'x-auth-token': token}
+        requests.delete(dnsaas_instance.get_location(), headers=header)
+        dnsaas_instance.set_location(None)
