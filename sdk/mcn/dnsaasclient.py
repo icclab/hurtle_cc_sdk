@@ -29,6 +29,9 @@ import re
 import time
 
 
+# Example of usage check tests/sdk_mcn_dnsaas_test_reduced.py
+#
+#
 
 class DNSaaSClientCore:
     """
@@ -77,9 +80,7 @@ class DNSaaSClientAction:
     __token = None
     __endpoint = None
     __tenant = None
-    __maas_endpoint_address = None
-    __maas_endpoint = None
-    __dispose_maas = None
+
 
     @classmethod
     def set_location(cls, arg):
@@ -99,50 +100,20 @@ class DNSaaSClientAction:
     def get_tenant(cls):
         return cls.__tenant
 
-    @classmethod
-    def get_maas_endpoint_address(cls):
-        return cls.__maas_endpoint_address
 
-    @classmethod
-    def set_maas_endpoint_address(cls, arg):
-        if arg != cls.__maas_endpoint_address:
-            cls.__maas_endpoint_address = arg
 
-    @classmethod
-    def get_maas_endpoint(cls):
-        return cls.__maas_endpoint
-
-    @classmethod
-    def set_maas_endpoint(cls, arg):
-        if arg != cls.__maas_endpoint:
-            cls.__maas_endpoint = arg
-
-    @classmethod
-    def get_dispose_maas(cls):
-        return cls.__dispose_maas
-
-    @classmethod
-    def set_dispose_maas(cls, arg):
-        if arg != cls.__dispose_maas:
-            cls.__dispose_maas = arg
-
-    def __init__(self, endpoint, tenant, token, maas_endpoint_address, maas_endpoint, dispose_maas):
+    def __init__(self, endpoint, tenant, token, dns_api=None):
         self.__endpoint = endpoint
-
 
         # self.__tenant = tenant
         if DNSaaSClientAction.get_tenant() is None:
             DNSaaSClientAction.set_tenant(tenant)
+
         self.__token = token
 
-        if DNSaaSClientAction.get_maas_endpoint_address() is None:
-            DNSaaSClientAction.set_maas_endpoint_address(maas_endpoint_address)
+        if dns_api is not None:
+            self.__urldnsaas = dns_api
 
-        if DNSaaSClientAction.get_dispose_maas() is None:
-            DNSaaSClientAction.set_dispose_maas(dispose_maas)
-
-        if DNSaaSClientAction.get_maas_endpoint() is None:
-            DNSaaSClientAction.set_maas_endpoint(maas_endpoint)
 
     """
     Domain Methods
@@ -270,7 +241,7 @@ class DNSaaSClientAction:
 
         return content
 
-    def update_record(self, domain_name, record_name, record_type, parameter_to_update, data, token):
+    def update_record(self, domain_name, record_name, record_type, parameter_to_update, record_data, token):
         """
         Method used to update a record information
 
@@ -278,12 +249,12 @@ class DNSaaSClientAction:
         :param record_name: Record Name
         :param record_type: Record type
         :param parameter_to_update: Parameter to update, 'ttl', 'description' or 'data'
-        :param data: The actual information to update
+        :param record_data: The actual information to update
         :param token: Token
         :return: Status 1 for success, or a description of error
         """
         msg_json = {'domain_name': domain_name, 'record_name': record_name, 'record_type': record_type,
-                    'parameter_to_update': parameter_to_update, 'data': data}
+                    'parameter_to_update': parameter_to_update, 'data': record_data}
         status, content = self.__dnsaasclient.do_request('PUT', '/records', json.dumps(msg_json, sort_keys=False),
                                                          token)
         return content
@@ -392,72 +363,71 @@ class DNSaaSClientAction:
         """
         Method to initialize the object class of DNSaaS
         """
+        #if self.__urldnsaas is not None:
+        #    self.__dnsaasclient = DNSaaSClientCore(self.__urldnsaas, self.__token)
+        #    self.test_connectivity_to_dnsaaspi() # Check when socket is available
+        #    return True
+
         headers = {'Category': 'dnsaas; scheme=\"http://schemas.mobile-cloud-networking.eu/occi/sm#\"; class=\"kind\";',
                    'content-type': 'text/occi', 'x-tenant-name': DNSaaSClientAction.get_tenant(),
                    'x-auth-token': self.__token, 'Accept': 'text/occi'}
 
-        if (DNSaaSClientAction.get_maas_endpoint_address() is not None):
-            headers['X-OCCI-Attribute'] = 'mcn.endpoint.maas="' + DNSaaSClientAction.get_maas_endpoint_address() + '"'
 
         if DNSaaSClientAction.get_location() is None:
             # SingleTon at the level of tenant
             env_sm = requests.get(self.__endpoint + '/', headers=headers)
             try:
                 if 'X-OCCI-location' in env_sm.headers:
-
                     aux = str(env_sm.headers.get('X-OCCI-location'))
-                    number_instances = len(aux.split(','))
-                    if number_instances > 1:
-                        raise Exception, "Not able to handle more than one instance! " + str(number_instances)
                 else:
                     print("Service not deployed need to deploy it!!!!")
                     env_sm = requests.post(self.__endpoint + '/', headers=headers)
                     aux=str(env_sm.headers.get('location'))
-                    
-
             except:
                 traceback.print_exc()
 
-          
             DNSaaSClientAction.set_location(aux)
         else:
             print "Location is Already in Mem" + DNSaaSClientAction.get_location()
 
         for i in range(0, 40):
-                   
             response = requests.get(DNSaaSClientAction.get_location(), headers=headers)
-            if 'UPDATE_COMPLETE' in response.headers.get('x-occi-attribute', None):
+            resp_aux = response.headers.get('x-occi-attribute', None)
 
-                
-                attributes=response.headers.get('x-occi-attribute').split(",")
-                for attr in attributes:
-                    hh = re.split("=", attr)
+            if resp_aux is not None:
+                if 'UPDATE_COMPLETE' in resp_aux or 'CREATE_COMPLETE' in resp_aux:
+                    attributes=response.headers.get('x-occi-attribute').split(",")
+                    for attr in attributes:
+                        hh = re.split("=", attr)
 
-                    if hh[0].strip() == 'mcn.endpoint.api':
-                        ip_dnsaas = hh[1].strip('"')
-                        print "API endpoint received " + ip_dnsaas
-                        self.__urldnsaas = ip_dnsaas
+                        if hh[0].strip() == 'mcn.endpoint.api':
+                            ip_dnsaas = hh[1].strip('"')
+                            print "API endpoint received " + ip_dnsaas
+                            self.__urldnsaas = ip_dnsaas
 
 
-                    if hh[0].strip() == 'mcn.endpoint.forwarder':
-                        ip_dnsaas = hh[1].strip('"')
-                        print "Forwarder endpoint received " + ip_dnsaas
-                        self.__fwdaddresses = ip_dnsaas
+                        if hh[0].strip() == 'mcn.endpoint.forwarder':
+                            ip_dnsaas = hh[1].strip('"')
+                            print "Forwarder endpoint received " + ip_dnsaas
+                            self.__fwdaddresses = ip_dnsaas
 
-    
-                    if self.__urldnsaas is not None and self.__fwdaddresses is not None:
-                        self.__dnsaasclient = DNSaaSClientCore(self.__urldnsaas, self.__token)
 
-                        self.test_connectivity_to_dnsaaspi() # Check when socket is available
-                        return True
-            else:
-                if 'CREATE_FAILED' in response.headers.get('x-occi-attribute') or 'NO_STACK' in response.headers.get('x-occi-attribute') \
-                        or response.status_code != 200:
-                    print('Error creating DNSaaS, abort')
-                    return False
+                        if self.__urldnsaas is not None and self.__fwdaddresses is not None:
+                            self.__dnsaasclient = DNSaaSClientCore(self.__urldnsaas, self.__token)
+
+                            self.test_connectivity_to_dnsaaspi() # Check when socket is available
+                            return True
                 else:
-                    #print "Sleeping"
-                    time.sleep(10)
+                    if 'CREATE_FAILED' in response.content or 'NO_STACK' in response.content or response.status_code != 200:
+                        print('Error creating DNSaaS, abort status=' + str(response.status_code))
+                        print('Possible reason a container was not properly disposed form SM! (restart SM)!')
+                        return False
+                    else:
+                        #print "Sleeping"
+                        time.sleep(10)
+            else:
+                print('Error No X-OCCI attributes with status_code=' + str(response.status_code))
+                time.sleep(10)
 
         return False
 

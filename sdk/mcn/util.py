@@ -149,12 +149,19 @@ def get_dnsaas(token, **kwargs):
         maas_address=None
         maas_endpoint=None 
         dispose_maas=False
-        dns_action = dnsaasclient.DNSaaSClientAction(endpoint, tenant, token, maas_address, maas_endpoint, dispose_maas)
+
+        if 'mcn_endpoint_api' in kwargs:
+            dns_api = kwargs['mcn_endpoint_api']
+
+            dns_action = dnsaasclient.DNSaaSClientAction(endpoint, tenant, token, dns_api)
+        else:
+            dns_action = dnsaasclient.DNSaaSClientAction(endpoint, tenant, token)
+
         if dns_action.init_dns():
             return dns_action
         else:
             return None
-   
+
 
 
 def dispose_dnsaas(token, dnsaas_instance):
@@ -165,10 +172,6 @@ def dispose_dnsaas(token, dnsaas_instance):
     :param dnsaas_instance: an instance of DNSaaSClientAction
     """
     if dnsaas_instance.get_location() is not None:
-
-        # Check if maas was instantiate this instance of DNSaas
-        if dnsaas_instance.get_dispose_maas():
-            dispose_maas(token, dnsaas_instance.get_maas_endpoint())
 
         header = {'x-tenant-name': dnsaas_instance.get_tenant(), 'x-auth-token': token}
         requests.delete(dnsaas_instance.get_location(), headers=header)

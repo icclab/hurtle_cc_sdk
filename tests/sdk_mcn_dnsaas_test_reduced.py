@@ -66,19 +66,20 @@ class DNSaaS_test(unittest.TestCase):
         cls.token = keystone.auth_token
 
         # instantiate class under test.
+        #cls.cut = util.get_dnsaas(cls.token, tenant_name=cls.tenant, mcn_endpoint_api='130.92.70.245')
+
         cls.cut = util.get_dnsaas(cls.token, tenant_name=cls.tenant)
-        # Uncoment to Bypass MaaS
-        #cls.cut = util.get_dnsaas(cls.token, tenant_name=cls.tenant, maas_endpoint_address='130.92.70.207')
 
 
-    @classmethod
-    def tearDownClass(cls):
-       """
-       Dispose cut after test
-       """
-       util.dispose_dnsaas(cls.token, cls.cut)
-       #sleep 10s to be gentle on the SM between post/delete
-       time.sleep(10)
+
+    # @classmethod
+    # def tearDownClass(cls):
+    #    """
+    #    Dispose cut after test
+    #    """
+    #    util.dispose_dnsaas(cls.token, cls.cut)
+    #    #sleep 10s to be gentle on the SM between post/delete
+    #    time.sleep(10)
 
     def test0001_create_domain(self):
         domain_name = "test4_dnsaas.com"
