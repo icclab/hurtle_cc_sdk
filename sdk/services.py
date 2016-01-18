@@ -65,6 +65,33 @@ def _get_url_type(item, **kwargs):
     return endpoint
 
 
+def get_service_endpoints(stype, token,
+                          endpoint='http://localhost:35357/v2.0', **kwargs):
+    """
+    Retrieve all endpoints for a given service type
+    :param stype: service type
+    :param token: The token.
+    :param endpoint: Optional design module uri.
+    :param args: Optional arguments.
+    :return:
+    """
+    # Update from OpS variable.
+    if 'DESIGN_URI' in os.environ:
+        endpoint = os.environ['DESIGN_URI']
+
+    if 'tenant_name' in kwargs:
+        tname = kwargs['tenant_name']
+    else:
+        raise Exception('Tenant Name missing from request')
+
+    design = client.Client(token=token, endpoint=endpoint)
+    raw_token = design.get_raw_token_from_identity_service(endpoint, token=token, tenant_name=tname)
+    sc = raw_token.service_catalog
+    endpoints = sc.get_endpoints(service_type=stype)
+
+    return endpoints
+
+
 def get_service_endpoint(identifier, token,
                          endpoint='http://localhost:35357/v2.0', **kwargs):
     """
@@ -110,13 +137,19 @@ def get_service_endpoint(identifier, token,
         return None
 
     res = None
+    if 'allow_multiple' in kwargs and kwargs['allow_multiple']:
+            res = []
+
     for item in design.endpoints.list():
         for service_id in service_ids:
             if service_id == item.service_id and region == item.region:
-                res = _get_url_type(item, **kwargs)
-                if '%(tenant_id)s' in res:
-                    res = res.replace('%(tenant_id)s', tenant_id)
-                elif '$(tenant_id)s' in res:
-                    res = res.replace('$(tenant_id)s', tenant_id)
+                if 'allow_multiple' in kwargs and kwargs['allow_multiple']:
+                        res.append(_get_url_type(item, **kwargs))
+                else:
+                    res = _get_url_type(item, **kwargs)
+                    if '%(tenant_id)s' in res:
+                        res = res.replace('%(tenant_id)s', tenant_id)
+                    elif '$(tenant_id)s' in res:
+                        res = res.replace('$(tenant_id)s', tenant_id)
 
     return res
