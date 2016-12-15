@@ -135,6 +135,9 @@ class HeatDeployer(Deployer):
         if 'parameters' in kwargs:
             body['parameters'] = kwargs['parameters']
 
+        if 'files' in kwargs:
+            body['files'] = kwargs['files']
+
         tmp = heat.stacks.create(**body)
 
         return tmp['stack']['id']
