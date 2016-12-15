@@ -19,9 +19,9 @@ Setuptools script.
 from setuptools import setup
 
 setup(
-    name='mcn_cc_sdk',
-    version='1.2',
-    description='MCN Service Development Kit',
+    name='hurtle_cc_sdk',
+    version='1.2.1',
+    description='Service Development Kit',
     author='Intel Performance Learning Solutions Ltd, Intel Corporation.',
     author_email='thijs.metsch@intel.com',
     url='http://www.intel.com',
